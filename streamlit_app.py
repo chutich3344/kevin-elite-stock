@@ -1,99 +1,61 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 import requests
-import random
-import streamlit.components.v1 as components
-from vnstock3 import Vnstock
+import json
 
-# --- 1. CẤU HÌNH GIAO DIỆN ---
-st.set_page_config(page_title='Kevin TV Elite', layout="wide")
+# --- Cấu hình giao diện ---
+st.set_page_config(page_title="Kevin's AI Tester", page_icon="🛰️")
+st.title("🛰️ Kevin's AI Tester")
+st.write("Dùng để kiểm tra kết nối giữa Streamlit và Google Gemini.")
 
-st.markdown("""
-<style>
-    .stApp { background-color: #030406; font-family: 'Inter', sans-serif; }
-    .stButton button {
-        background: linear-gradient(90deg, #6c3483 0%, #a569bd 100%) !important;
-        border: none !important; color: white !important; font-weight: 600 !important;
-        border-radius: 12px !important; height: 50px !important;
-    }
-    div[data-testid="stInfo"] {
-        background: rgba(13, 17, 23, 0.9) !important;
-        border-radius: 15px !important; color: #ccd6f6 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 2. HỆ THỐNG AI (CHỈ CHẠY KHI GỌI) ---
+# --- Lấy và làm sạch Key từ Secrets ---
+# App sẽ tìm biến 'gemini_keys' trong phần Secrets của Streamlit
 raw_keys = st.secrets.get("gemini_keys", [])
-LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
-def safe_ai(prompt):
-    if not LIST_KEYS: return "🚨 Lỗi: Check Secrets gemini_keys!"
-    shuffled = list(LIST_KEYS).copy()
-    random.shuffle(shuffled)
-    for k in shuffled:
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={k}"
-        try:
-            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
-            if res.status_code == 200:
-                return res.json()['candidates'][0]['content']['parts'][0]['text']
-        except: continue
-    return "🚨 Vệ tinh bận, thử lại nhé Kevin!"
-
-# --- 3. APP CHÍNH ---
-st.sidebar.title("🛡️ KEVIN TV ELITE")
-ticker = st.sidebar.text_input("Nhập mã (VD: FPT, HPG):", "").upper()
-
-# KHÔNG LOAD GÌ CẢ NẾU CHƯA NHẬP MÃ
-if not ticker:
-    st.markdown('<div style="text-align:center; padding-top:150px; color:#888;"><h1>🔭 KEVIN ELITE STOCK</h1><p>Nhập mã tại Sidebar để soi lệnh.</p></div>', unsafe_allow_html=True)
+# Nếu Kevin dán dạng list ["key1"] hoặc chỉ 1 chuỗi "key1", code này đều xử lý được
+if isinstance(raw_keys, str):
+    clean_keys = [raw_keys.strip().replace('"', '').replace("'", "")]
 else:
-    # Biểu đồ TradingView (Cái này nhẹ, cho hiện luôn)
-    tv_html = f"""
-    <div style="height:500px;"><div id="tv_chart" style="height:500px;"></div>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <script>new TradingView.widget({{"autosize": true, "symbol": "HOSE:{ticker}", "interval": "D", "theme": "dark", "container_id": "tv_chart"}});</script>
-    </div>
-    """
-    components.html(tv_html, height=500)
+    clean_keys = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
-    st.divider()
-    col_l, col_r = st.columns(2)
-    
-    with col_l:
-        st.subheader("🚀 Phân Tích AI")
-        # NÚT BẤM KÍCH HOẠT HÀM 1 (Lấy dữ liệu + AI Phân tích)
-        if st.button(f"QUÉT MÃ {ticker}"):
-            with st.spinner('Đang lách rào lấy dữ liệu...'):
-                df = pd.DataFrame()
-                # BỎ QUA TCBS (Vì log báo lỗi 404 liên tục), THỬ NGUỒN KHÁC
-                for src in ['SSI', 'VCI', 'DNSE']:
-                    try:
-                        stock = Vnstock().stock(symbol=ticker, source=src)
-                        df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
-                        if df is not None and not df.empty: break
-                    except: continue
+# --- Giao diện Test ---
+if not clean_keys:
+    st.error("🚨 Lỗi: Chưa tìm thấy Key nào trong Secrets! Kevin hãy kiểm tra lại mục 'gemini_keys'.")
+else:
+    key_to_test = clean_keys[0]
+    st.info(f"Đang chuẩn bị test với Key đuôi: `...{key_to_test[-4:]}`")
+
+    if st.button("🚀 BẤM ĐỂ TEST KẾT NỐI VỆ TINH"):
+        with st.spinner("Đang gửi tín hiệu lên Google..."):
+            # URL gọi Model Gemini 1.5 Flash
+            url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={key_to_test}"
+            headers = {'Content-Type': 'application/json'}
+            payload = {
+                "contents": [{"parts": [{"text": "Hello Gemini, this is Kevin. Are you active?"}]}]
+            }
+
+            try:
+                res = requests.post(url, json=payload, headers=headers, timeout=15)
                 
-                if not df.empty:
-                    lp = df['close'].iloc[-1]
-                    # Chỉ khi lấy được dữ liệu mới gọi hàm AI
-                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá {lp:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
+                if res.status_code == 200:
+                    st.success("✅ VỆ TINH ĐÃ KẾT NỐI THÀNH CÔNG!")
+                    data = res.json()
+                    # Hiển thị câu trả lời từ AI
+                    ai_response = data['candidates'][0]['content']['parts'][0]['text']
+                    st.markdown(f"**Gemini trả lời:** {ai_response}")
                 else:
-                    st.session_state.anal = "❌ Các nguồn SSI/VCI đang chặn IP. Thử lại sau ít phút!"
-        
-        st.info(st.session_state.get('anal', "Nhấn nút để bắt đầu quét..."))
+                    st.error(f"❌ THẤT BẠI: Google trả về lỗi {res.status_code}")
+                    # Hiện nguyên cục JSON lỗi để Kevin chụp màn hình gửi mình soi
+                    st.json(res.json())
+                    
+                    # Giải mã nhanh một số lỗi phổ biến
+                    if res.status_code == 400:
+                        st.warning("👉 Lỗi 400: Thường là do Key bị sai ký tự hoặc dán sai định dạng.")
+                    elif res.status_code == 403:
+                        st.warning("👉 Lỗi 403: Key chưa được bật API hoặc quốc gia của bạn bị chặn.")
+            
+            except Exception as e:
+                st.error(f"🚨 Lỗi kết nối vật lý: {str(e)}")
+                st.write("Kiểm tra lại mạng hoặc server Streamlit.")
 
-    with col_r:
-        st.subheader("💬 Trợ Lý Trading")
-        q = st.chat_input(f"Hỏi về {ticker}...")
-        # NÚT BẤM KÍCH HOẠT HÀM 2 (Chat AI)
-        if q: 
-            st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
-        
-        st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
-        
-        if st.button("🗑️ XOÁ LỊCH SỬ"):
-            for key in ['chat', 'anal']:
-                if key in st.session_state: del st.session_state[key]
-            st.rerun()
+st.divider()
+st.caption("Admin hỗ trợ Kevin - 2026")
