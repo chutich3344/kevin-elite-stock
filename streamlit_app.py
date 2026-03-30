@@ -1,26 +1,27 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import yfinance as yf
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 import requests
 import random
-import streamlit.components.v1 as components
-import yfinance as yf # Thư viện lấy data từ Google/Yahoo Finance
 
 # --- 1. CONFIG GIAO DIỆN ---
-st.set_page_config(page_title='Kevin TV Elite', layout="wide")
+st.set_page_config(page_title='Kevin Elite Finance', layout="wide")
 
 st.markdown("""
 <style>
-    .stApp { background-color: #030406; font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #030406; color: #e0e0e0; }
     .stButton button {
-        background: linear-gradient(90deg, #6c3483 0%, #a569bd 100%) !important;
-        border: none !important; color: white !important; font-weight: 600 !important;
-        border-radius: 12px !important; height: 50px !important;
+        background: linear-gradient(90deg, #1db954 0%, #191414 100%) !important;
+        border: none !important; color: white !important;
+        border-radius: 10px !important; height: 45px !important; width: 100% !important;
     }
+    div[data-testid="stMetricValue"] { color: #1db954 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HỆ THỐNG AI (DÙNG KEY KEVIN ĐÃ TEST NGON) ---
+# --- 2. HỆ THỐNG AI ---
 raw_keys = st.secrets.get("gemini_keys", [])
 LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
@@ -33,58 +34,61 @@ def safe_ai(prompt):
         if res.status_code == 200:
             return res.json()['candidates'][0]['content']['parts'][0]['text']
     except: pass
-    return "🚨 Vệ tinh AI bận, Kevin nhấn Quét lại nhé!"
+    return "🚨 Vệ tinh bận do quét quá nhanh, Kevin đợi 1 phút nhé!"
 
 # --- 3. APP CHÍNH ---
-st.sidebar.title("🛡️ KEVIN TV ELITE")
+st.sidebar.title("🛡️ KEVIN ELITE")
 ticker_raw = st.sidebar.text_input("Nhập mã (VD: FPT, HPG, VIC):", "").upper()
 
 if not ticker_raw:
-    st.markdown('<div style="text-align:center; padding-top:150px; color:#888;"><h1>🔭 KEVIN ELITE STOCK</h1><p>Dữ liệu Google Finance đã sẵn sàng. Nhập mã để soi!</p></div>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center; padding-top:150px; color:#888;"><h1>📈 GOOGLE FINANCE ENGINE</h1><p>Hệ thống dùng dữ liệu thời gian thực từ Google. Nhập mã để bắt đầu.</p></div>', unsafe_allow_html=True)
 else:
-    # Google Finance/Yahoo dùng format: MA.SS (VD: FPT.HM cho sàn HOSE)
-    ticker_yf = f"{ticker_raw}.HM" 
+    ticker_yf = f"{ticker_raw}.HM"
     
-    # Biểu đồ TradingView
-    tv_html = f"""
-    <div style="height:500px;"><div id="tv_chart" style="height:500px;"></div>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <script>new TradingView.widget({{"autosize": true, "symbol": "HOSE:{ticker_raw}", "interval": "D", "theme": "dark", "container_id": "tv_chart"}});</script>
-    </div>
-    """
-    components.html(tv_html, height=500)
+    # NÚT BẤM KÍCH HOẠT TẤT CẢ
+    if st.button(f"🔍 PHÂN TÍCH MÃ {ticker_raw}"):
+        with st.spinner('Đang kết nối vệ tinh Google Finance...'):
+            try:
+                # Lấy dữ liệu 3 tháng gần nhất để vẽ chart đẹp
+                df = yf.download(ticker_yf, period="3mo", interval="1d")
+                
+                if not df.empty:
+                    # 1. VẼ CHART PLOTLY
+                    fig = go.Figure(data=[go.Candlestick(
+                        x=df.index,
+                        open=df['Open'], high=df['High'],
+                        low=df['Low'], close=df['Close'],
+                        increasing_line_color='#1db954', decreasing_line_color='#e91e63'
+                    )])
+                    fig.update_layout(title=f'Biểu đồ giá {ticker_raw}', template='plotly_dark', height=500)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # 2. HIỂN THỊ CHỈ SỐ NHANH
+                    lp = float(df['Close'].iloc[-1])
+                    change = lp - float(df['Close'].iloc[-2])
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Giá hiện tại", f"{lp:,.0f}đ", f"{change:,.0f}đ")
+                    
+                    # 3. GỌI AI PHÂN TÍCH
+                    st.session_state.anal = safe_ai(f"Mã {ticker_raw}, giá {lp:,.0f}đ. Dữ liệu 3 tháng qua có xu hướng { 'tăng' if change > 0 else 'giảm' }. Hãy phân tích kỹ thuật ngắn hạn.")
+                else:
+                    st.error(f"❌ Không tìm thấy mã {ticker_raw} hoặc đang bị giới hạn truy cập (Rate Limit).")
+            except Exception as e:
+                st.error(f"🚨 Lỗi hệ thống: {str(e)}")
 
     st.divider()
-    col_l, col_r = st.columns(2)
-    
-    with col_l:
-        st.subheader("🚀 Phân Tích AI")
-        if st.button(f"QUÉT MÃ {ticker_raw}"):
-            with st.spinner('Đang gọi dữ liệu từ Google Finance...'):
-                try:
-                    # Lấy data qua yfinance (Lấy từ nguồn Google/Yahoo Finance)
-                    data = yf.download(ticker_yf, period="1mo", interval="1d")
-                    
-                    if not data.empty:
-                        # Lấy giá đóng cửa mới nhất
-                        lp = data['Close'].iloc[-1]
-                        # Gọi AI phân tích
-                        st.session_state.anal = safe_ai(f"Mã {ticker_raw}, giá chốt phiên gần nhất {float(lp):,.0f}đ. Hãy phân tích kỹ thuật ngắn hạn mã này.")
-                    else:
-                        st.session_state.anal = f"❌ Không tìm thấy mã {ticker_raw} trên Google Finance. Thử lại mã khác!"
-                except Exception as e:
-                    st.session_state.anal = f"🚨 Lỗi kết nối Google: {str(e)}"
-        
-        st.info(st.session_state.get('anal', "Nhấn nút để bắt đầu..."))
+    if 'anal' in st.session_state:
+        st.subheader("🚀 AI Đánh Giá")
+        st.info(st.session_state.anal)
 
-    with col_r:
-        st.subheader("💬 Trợ Lý Trading")
-        q = st.chat_input(f"Hỏi Gemini về {ticker_raw}...")
-        if q: 
-            st.session_state.chat = safe_ai(f"Mã {ticker_raw}: {q}")
-        st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
-        
-        if st.button("🗑️ XOÁ LỊCH SỬ"):
-            for k in ['chat', 'anal']:
-                if k in st.session_state: del st.session_state[k]
+    # TRỢ LÝ CHAT
+    q = st.chat_input(f"Hỏi thêm về mã {ticker_raw}...")
+    if q:
+        st.session_state.chat = safe_ai(f"Mã {ticker_raw}: {q}")
+    
+    if 'chat' in st.session_state:
+        st.subheader("💬 Trợ Lý")
+        st.success(st.session_state.chat)
+        if st.button("🗑️ XOÁ CHAT"):
+            del st.session_state.chat
             st.rerun()
