@@ -43,7 +43,7 @@ def safe_ai(prompt):
 
 # --- 3. MAIN APP ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
-ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC):", "FPT").upper()
+ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC):", "").upper()
 
 if ticker:
     tv_html = f"""
@@ -64,7 +64,7 @@ if ticker:
         st.subheader("🚀 Phân Tích AI")
         if st.button(f"QUÉT MÃ {ticker}"):
             try:
-                stock = Vnstock().stock(symbol=ticker, source='VCI')
+                stock = Vnstock().stock(symbol=ticker, source='TCBS')
                 df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
                 if not df.empty:
                     lp = df['close'].iloc[-1]
