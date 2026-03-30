@@ -61,11 +61,24 @@ def safe_ai(prompt):
     if not LIST_KEYS: return "🚨 Cấu hình Secrets lỗi!"
     shuffled = list(LIST_KEYS).copy()
     random.shuffle(shuffled)
+    
+    # Cấu hình bỏ chặn nội dung chứng khoán
+    safety = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+    ]
+
     for k in shuffled:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={k}"
         try:
-            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
-            if res.status_code == 200: return res.json()['candidates'][0]['content']['parts'][0]['text']
+            res = requests.post(url, json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "safetySettings": safety
+            }, timeout=15)
+            if res.status_code == 200:
+                return res.json()['candidates'][0]['content']['parts'][0]['text']
         except: continue
     return "🚨 Vệ tinh bận, Kevin thử lại nhé!"
 
