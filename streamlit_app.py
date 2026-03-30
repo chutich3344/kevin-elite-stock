@@ -43,7 +43,7 @@ def safe_ai(prompt):
 
 # --- 3. APP CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
-ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC, HPG):", "FPT").upper()
+ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC, HPG):", "").upper()
 
 if ticker:
     # Biểu đồ TradingView
