@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
 from datetime import datetime
 import requests
 import random
 import time
 import streamlit.components.v1 as components
+from vnstock import * # Di chuyển lên đầu trang
 
 # --- 1. CẤU HÌNH & CSS VŨ TRỤ (OCD APPROVED) ---
 st.set_page_config(page_title='Kevin TV Elite', layout="wide")
@@ -62,7 +62,6 @@ def safe_ai(prompt):
     shuffled = list(LIST_KEYS).copy()
     random.shuffle(shuffled)
     
-    # Cấu hình bỏ chặn nội dung chứng khoán
     safety = [
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -106,31 +105,31 @@ else:
 
     st.divider()
     col_l, col_r = st.columns(2)
+    
     with col_l:
         st.markdown('### 🚀 Phân Tích Kỹ Thuật')
         if st.button("QUÉT TÍN HIỆU AI"):
-            #--df = yf.download(f"{ticker_list[0]}.VN", period="1mo", progress=False)
-
-   from vnstock import *
-    # ... trong phần nút bấm Quét Tín Hiệu ...
-    try:
-        # Lấy dữ liệu lịch sử 30 ngày gần nhất
-        df = stock_historical_data(symbol=ticker_list[0], 
-                                start_date="2024-01-01", 
-                                end_date=datetime.now().strftime('%Y-%m-%d'), 
-                                resolution='1D', type='stock')
+            try:
+                # Lấy dữ liệu 30 ngày gần nhất qua vnstock
+                df = stock_historical_data(symbol=ticker_list[0], 
+                                        start_date="2024-01-01", 
+                                        end_date=datetime.now().strftime('%Y-%m-%d'), 
+                                        resolution='1D', type='stock')
+                
+                if not df.empty:
+                    last_price = df['close'].iloc[-1]
+                    prompt = f"Mã {ticker_list[0]}, giá chốt phiên gần nhất là {last_price:,.0f} VNĐ. Phân tích kỹ thuật ngắn hạn."
+                    st.session_state.anal = safe_ai(prompt)
+                else:
+                    st.session_state.anal = "❌ Không tìm thấy dữ liệu mã này trên sàn VN."
+            except Exception as e:
+                st.session_state.anal = f"❌ Lỗi lấy dữ liệu VN: {str(e)}"
         
-        if not df.empty:
-            last_price = df['close'].iloc[-1]
-            prompt = f"Mã {ticker_list[0]}, giá chốt phiên gần nhất là {last_price:,.0f} VNĐ. Phân tích kỹ thuật ngắn hạn."
-            st.session_state.anal = safe_ai(prompt)
-        else:
-            st.session_state.anal = "❌ Không tìm thấy dữ liệu mã này trên sàn VN."
-    except Exception as e:
-        st.session_state.anal = f"❌ Lỗi lấy dữ liệu VN: {str(e)}"        
+        st.info(st.session_state.get('anal', "Đang đợi lệnh..."))
 
     with col_r:
         st.markdown('### 💬 Trợ Lý Trading')
         q = st.chat_input("Hỏi gì đi...")
-        if q: st.session_state.chat = safe_ai(f"Mã {ticker_list[0]}: {q}")
+        if q: 
+            st.session_state.chat = safe_ai(f"Mã {ticker_list[0]}: {q}")
         st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
