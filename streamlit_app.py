@@ -6,7 +6,7 @@ import random
 import streamlit.components.v1 as components
 from vnstock3 import Vnstock
 
-# --- 1. CONFIG GIAO DIỆN (DARK MODE) ---
+# --- 1. CẤU HÌNH GIAO DIỆN ---
 st.set_page_config(page_title='Kevin TV Elite', layout="wide")
 
 st.markdown("""
@@ -21,10 +21,13 @@ st.markdown("""
         background: rgba(13, 17, 23, 0.9) !important;
         border-radius: 15px !important; color: #ccd6f6 !important;
     }
+    .clear-btn button {
+        background: #212529 !important; height: 35px !important; margin-top: 10px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HỆ THỐNG AI (FIX VỆ TINH BẬN) ---
+# --- 2. HỆ THỐNG AI ---
 raw_keys = st.secrets.get("gemini_keys", [])
 LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
@@ -32,31 +35,21 @@ def safe_ai(prompt):
     if not LIST_KEYS: return "🚨 Lỗi: Check Secrets gemini_keys!"
     shuffled = list(LIST_KEYS).copy()
     random.shuffle(shuffled)
-    
-    # Headers giả lập để tránh bị chặn IP
-    headers = {'Content-Type': 'application/json'}
-    
     for k in shuffled:
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={k}"
         try:
-            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers=headers, timeout=15)
+            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
         except: continue
-    return "🚨 Vệ tinh bận, Kevin nhấn Quét lại lần nữa nhé!"
+    return "🚨 Vệ tinh bận, nhấn Quét lại nhé Kevin!"
 
-# --- 3. GIAO DIỆN CHÍNH ---
+# --- 3. APP CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
-# Ô search để trống cho load lẹ theo ý Kevin
-ticker = st.sidebar.text_input("Nhập mã chứng khoán (VD: FPT, HPG):", "").upper()
+ticker = st.sidebar.text_input("Nhập mã (VD: FPT, HPG):", "").upper()
 
 if not ticker:
-    st.markdown("""
-    <div style="text-align:center; padding-top:150px; color:#888;">
-        <h1>🔭 KEVIN ELITE STOCK</h1>
-        <p>Nhập mã cổ phiếu ở Sidebar để bắt đầu soi lệnh.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center; padding-top:150px; color:#888;"><h1>🔭 KEVIN ELITE STOCK</h1><p>Nhập mã tại Sidebar để soi lệnh.</p></div>', unsafe_allow_html=True)
 else:
     # Biểu đồ TradingView
     tv_html = f"""
@@ -78,27 +71,33 @@ else:
         if st.button(f"QUÉT MÃ {ticker}"):
             with st.spinner('Đang lách rào lấy dữ liệu...'):
                 df = pd.DataFrame()
-                # CƠ CHẾ VƯỢT 403: Thử lần lượt các nguồn khác nhau
-                sources = ['TCBS', 'SSI', 'DNSE', 'VCI', 'VND']
-                for src in sources:
+                # CƠ CHẾ VƯỢT 403/404: Tự động đổi nguồn nếu lỗi
+                for src in ['SSI', 'VCI', 'DNSE', 'TCBS']:
                     try:
                         stock = Vnstock().stock(symbol=ticker, source=src)
                         df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
-                        if df is not None and not df.empty:
-                            break
+                        if df is not None and not df.empty: break
                     except: continue
                 
                 if not df.empty:
                     lp = df['close'].iloc[-1]
-                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá {lp:,.0f}đ. Hãy phân tích kỹ thuật ngắn hạn cho tôi.")
+                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá {lp:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
                 else:
-                    st.session_state.anal = "❌ Tất cả nguồn dữ liệu đang chặn (403). Kevin thử nhấn lại hoặc đổi mã khác!"
-        
-        st.info(st.session_state.get('anal', "Nhấn nút để quét tín hiệu..."))
+                    st.session_state.anal = "❌ Tất cả nguồn đều chặn (403/404). Thử lại sau ít phút!"
+        st.info(st.session_state.get('anal', "Nhấn nút để bắt đầu..."))
 
     with col_r:
-        st.subheader("💬 Trợ Lý")
+        st.subheader("💬 Trợ Lý Trading")
         q = st.chat_input(f"Hỏi về {ticker}...")
         if q: 
             st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
+        
         st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
+        
+        # --- NÚT XOÁ CHAT ---
+        st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
+        if st.button("🗑️ XOÁ LỊCH SỬ"):
+            if 'chat' in st.session_state: del st.session_state.chat
+            if 'anal' in st.session_state: del st.session_state.anal
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
