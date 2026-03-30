@@ -32,18 +32,24 @@ LIST_KEYS = [k.strip() for k in raw_keys if k.strip()]
 
 def safe_ai(prompt):
     if not LIST_KEYS: return "🚨 Chưa nhận được Key từ Secrets!"
+    
+    # Thử lần lượt các đời API của Google
+    api_versions = ["v1", "v1beta"] 
+    
     for k in LIST_KEYS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={k.strip()}"
-        try:
-            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
-            if res.status_code == 200:
-                return res.json()['candidates'][0]['content']['parts'][0]['text']
-            else:
-                # Hiện thẳng mã lỗi để Kevin báo lại cho mình
-                return f"🚨 Google báo lỗi {res.status_code}: {res.text[:100]}"
-        except Exception as e:
-            continue
-    return "🚨 Lỗi kết nối vật lý!"
+        for version in api_versions:
+            url = f"https://generativelanguage.googleapis.com/{version}/models/gemini-1.5-flash:generateContent?key={k.strip()}"
+            try:
+                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
+                if res.status_code == 200:
+                    return res.json()['candidates'][0]['content']['parts'][0]['text']
+                elif res.status_code == 404:
+                    continue # Nếu v1 không thấy thì thử v1beta
+                else:
+                    return f"🚨 Google báo lỗi {res.status_code}: {res.text[:100]}"
+            except Exception as e:
+                continue
+    return "🚨 Không tìm thấy model phù hợp hoặc lỗi kết nối!"
 
 # --- 3. GIAO DIỆN CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
