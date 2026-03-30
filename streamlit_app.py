@@ -31,26 +31,19 @@ raw_keys = st.secrets.get("gemini_keys", [])
 LIST_KEYS = [k.strip() for k in raw_keys if k.strip()]
 
 def safe_ai(prompt):
-    if not LIST_KEYS: return "🚨 Chưa có Key trong Secrets!"
-    shuffled = list(LIST_KEYS).copy()
-    random.shuffle(shuffled)
-    
-    for k in shuffled:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={k}"
+    if not LIST_KEYS: return "🚨 Chưa nhận được Key từ Secrets!"
+    for k in LIST_KEYS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={k.strip()}"
         try:
-            res = requests.post(url, json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "safetySettings": [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-                ]
-            }, timeout=10)
+            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
-        except: continue
-    return "🚨 Tất cả vệ tinh đều báo lỗi kết nối. Kevin kiểm tra lại Key nhé!"
+            else:
+                # Hiện thẳng mã lỗi để Kevin báo lại cho mình
+                return f"🚨 Google báo lỗi {res.status_code}: {res.text[:100]}"
+        except Exception as e:
+            continue
+    return "🚨 Lỗi kết nối vật lý!"
 
 # --- 3. GIAO DIỆN CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
