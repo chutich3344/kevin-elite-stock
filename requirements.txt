@@ -1,3 +1,4 @@
 streamlit
 vnstock3
 requests
+ipython
