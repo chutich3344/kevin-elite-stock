@@ -111,30 +111,23 @@ else:
         if st.button("QUÉT TÍN HIỆU AI"):
             #--df = yf.download(f"{ticker_list[0]}.VN", period="1mo", progress=False)
 
-            # Cách viết an toàn hơn để bắt lỗi dữ liệu
-            try:
-                # Thử lấy dữ liệu với đuôi .VN
-                ticker_symbol = f"{ticker_list[0]}.VN"
-                df = yf.download(ticker_symbol, period="1mo", progress=False)
-                
-                if df.empty:
-                    # Nếu .VN không ra, thử không đuôi (dành cho một số nền tảng)
-                    df = yf.download(ticker_list[0], period="1mo", progress=False)
-            
-                if not df.empty:
-                    # Lấy giá đóng cửa phiên gần nhất
-                    last_price = float(df['Close'].iloc[-1])
-                    prompt = f"Mã cổ phiếu {ticker_list[0]}, giá hiện tại là {last_price:,.0f} VNĐ. Hãy phân tích xu hướng ngắn hạn và cho lời khuyên."
-                    st.session_state.anal = safe_ai(prompt)
-                else:
-                    st.session_state.anal = "❌ Không lấy được dữ liệu giá từ Yahoo Finance. Vệ tinh thiếu nhiên liệu!"
-            except Exception as e:
-                st.session_state.anal = f"❌ Lỗi hệ thống: {str(e)}"
-            
-            if not df.empty:
-                last_price = float(df['Close'].iloc[-1])
-                st.session_state.anal = safe_ai(f"Mã {ticker_list[0]}, giá {last_price:,.0f}. Phân tích nhanh.")
-        st.info(st.session_state.get('anal', "Đang đợi lệnh..."))
+   from vnstock import *
+    # ... trong phần nút bấm Quét Tín Hiệu ...
+    try:
+        # Lấy dữ liệu lịch sử 30 ngày gần nhất
+        df = stock_historical_data(symbol=ticker_list[0], 
+                                start_date="2024-01-01", 
+                                end_date=datetime.now().strftime('%Y-%m-%d'), 
+                                resolution='1D', type='stock')
+        
+        if not df.empty:
+            last_price = df['close'].iloc[-1]
+            prompt = f"Mã {ticker_list[0]}, giá chốt phiên gần nhất là {last_price:,.0f} VNĐ. Phân tích kỹ thuật ngắn hạn."
+            st.session_state.anal = safe_ai(prompt)
+        else:
+            st.session_state.anal = "❌ Không tìm thấy dữ liệu mã này trên sàn VN."
+    except Exception as e:
+        st.session_state.anal = f"❌ Lỗi lấy dữ liệu VN: {str(e)}"        
 
     with col_r:
         st.markdown('### 💬 Trợ Lý Trading')
