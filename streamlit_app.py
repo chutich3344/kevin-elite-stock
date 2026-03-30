@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime
 import requests
 import random
-from vnstock3 import Vnstock # Chuẩn V3
+import streamlit.components.v1 as components
+from vnstock3 import Vnstock
 
 # --- 1. CẤU HÌNH GIAO DIỆN ---
 st.set_page_config(page_title='Kevin TV Elite', layout="wide")
@@ -46,7 +47,6 @@ st.sidebar.title("🛡️ KEVIN TV ELITE")
 ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC):", "FPT").upper()
 
 if ticker:
-    import streamlit.components.v1 as components
     tv_html = f"""
     <div style="height:500px;">
       <div id="tv_chart" style="height:500px;"></div>
@@ -65,7 +65,7 @@ if ticker:
         st.subheader("🚀 Phân Tích AI")
         if st.button(f"QUÉT MÃ {ticker}"):
             try:
-                # FIX DÒNG NÀY: Dùng Vnstock V3 đúng cách
+                # Dùng Vnstock V3 đúng chuẩn
                 stock = Vnstock().stock(symbol=ticker, source='VCI')
                 df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
                 
@@ -81,5 +81,6 @@ if ticker:
     with col_r:
         st.subheader("💬 Trợ Lý")
         q = st.chat_input("Hỏi gì đi...")
-        if q: st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
+        if q: 
+            st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
         st.info(st.session_state.get('chat', "Sẵn sàng..."))
