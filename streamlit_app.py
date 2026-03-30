@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import requests
 import random
-from vnstock3 import Vnstock # Dùng bản V3 mới nhất
+from vnstock3 import Vnstock # Chuẩn V3
 
 # --- 1. CẤU HÌNH GIAO DIỆN ---
 st.set_page_config(page_title='Kevin TV Elite', layout="wide")
@@ -26,25 +26,20 @@ st.markdown("""
 
 # --- 2. HỆ THỐNG VỆ TINH ---
 raw_keys = st.secrets.get("gemini_keys", [])
-# Xử lý làm sạch key (xóa khoảng trắng, dấu ngoặc dư thừa)
 LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
 def safe_ai(prompt):
-    if not LIST_KEYS: return "🚨 Chưa nhận được Key từ Secrets!"
+    if not LIST_KEYS: return "🚨 Kiểm tra lại Secrets (gemini_keys)!"
     shuffled = list(LIST_KEYS).copy()
     random.shuffle(shuffled)
-    
     for k in shuffled:
-        # Dùng v1 là bản ổn định nhất
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={k}"
         try:
             res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
-            elif res.status_code == 400:
-                return f"🚨 Lỗi 400: Key có vấn đề. Kiểm tra Key đuôi ...{k[-4:]}"
         except: continue
-    return "🚨 Tất cả vệ tinh bận, Kevin thử lại nhé!"
+    return "🚨 Vệ tinh bận, thử lại sau nhé Kevin!"
 
 # --- 3. GIAO DIỆN CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
@@ -70,21 +65,21 @@ if ticker:
         st.subheader("🚀 Phân Tích AI")
         if st.button(f"QUÉT MÃ {ticker}"):
             try:
-                # Cách gọi dữ liệu chuẩn Vnstock V3
+                # FIX DÒNG NÀY: Dùng Vnstock V3 đúng cách
                 stock = Vnstock().stock(symbol=ticker, source='VCI')
                 df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
                 
                 if not df.empty:
                     last_price = df['close'].iloc[-1]
-                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá {last_price:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
+                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá hiện tại {last_price:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
                 else:
-                    st.session_state.anal = "❌ Dữ liệu trống. Hãy kiểm tra lại mã."
+                    st.session_state.anal = "❌ Dữ liệu trống, check lại mã nhé."
             except Exception as e:
-                st.session_state.anal = f"❌ Lỗi lấy dữ liệu: {str(e)}"
-        st.info(st.session_state.get('anal', "Đang đợi lệnh..."))
+                st.session_state.anal = f"❌ Lỗi: {str(e)}"
+        st.info(st.session_state.get('anal', "Đang chờ lệnh..."))
 
     with col_r:
         st.subheader("💬 Trợ Lý")
-        q = st.chat_input("Hỏi gì về mã này...")
+        q = st.chat_input("Hỏi gì đi...")
         if q: st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
-        st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
+        st.info(st.session_state.get('chat', "Sẵn sàng..."))
