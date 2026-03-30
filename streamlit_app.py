@@ -6,7 +6,7 @@ import random
 import streamlit.components.v1 as components
 from vnstock3 import Vnstock
 
-# --- 1. CẤU HÌNH GIAO DIỆN ---
+# --- 1. CONFIG ---
 st.set_page_config(page_title='Kevin TV Elite', layout="wide")
 
 st.markdown("""
@@ -14,23 +14,22 @@ st.markdown("""
     .stApp { background-color: #030406; font-family: 'Inter', sans-serif; }
     .stButton button {
         background: linear-gradient(90deg, #6c3483 0%, #a569bd 100%) !important;
-        border: none !important; color: white !important; font-weight: 600 !important;
+        border: none !important; color: white !important;
         border-radius: 12px !important; height: 50px !important; width: 100% !important;
     }
     div[data-testid="stInfo"] {
         background: rgba(13, 17, 23, 0.9) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 15px !important; color: #ccd6f6 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HỆ THỐNG VỆ TINH ---
+# --- 2. AI SYSTEM ---
 raw_keys = st.secrets.get("gemini_keys", [])
 LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
 def safe_ai(prompt):
-    if not LIST_KEYS: return "🚨 Kiểm tra lại Secrets (gemini_keys)!"
+    if not LIST_KEYS: return "🚨 Check Secrets!"
     shuffled = list(LIST_KEYS).copy()
     random.shuffle(shuffled)
     for k in shuffled:
@@ -40,9 +39,9 @@ def safe_ai(prompt):
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
         except: continue
-    return "🚨 Vệ tinh bận, thử lại sau nhé Kevin!"
+    return "🚨 Vệ tinh bận, thử lại nhé!"
 
-# --- 3. GIAO DIỆN CHÍNH ---
+# --- 3. MAIN APP ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
 ticker = st.sidebar.text_input("Nhập mã (VD: FPT, VIC):", "FPT").upper()
 
@@ -65,18 +64,16 @@ if ticker:
         st.subheader("🚀 Phân Tích AI")
         if st.button(f"QUÉT MÃ {ticker}"):
             try:
-                # Dùng Vnstock V3 đúng chuẩn
                 stock = Vnstock().stock(symbol=ticker, source='VCI')
                 df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
-                
                 if not df.empty:
-                    last_price = df['close'].iloc[-1]
-                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá hiện tại {last_price:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
+                    lp = df['close'].iloc[-1]
+                    st.session_state.anal = safe_ai(f"Mã {ticker}, giá {lp:,.0f}đ. Phân tích ngắn hạn.")
                 else:
-                    st.session_state.anal = "❌ Dữ liệu trống, check lại mã nhé."
+                    st.session_state.anal = "❌ Dữ liệu trống!"
             except Exception as e:
                 st.session_state.anal = f"❌ Lỗi: {str(e)}"
-        st.info(st.session_state.get('anal', "Đang chờ lệnh..."))
+        st.info(st.session_state.get('anal', "Đang chờ..."))
 
     with col_r:
         st.subheader("💬 Trợ Lý")
