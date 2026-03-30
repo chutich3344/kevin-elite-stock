@@ -15,19 +15,16 @@ st.markdown("""
     .stButton button {
         background: linear-gradient(90deg, #6c3483 0%, #a569bd 100%) !important;
         border: none !important; color: white !important; font-weight: 600 !important;
-        border-radius: 12px !important; height: 50px !important; width: 100% !important;
+        border-radius: 12px !important; height: 50px !important;
     }
     div[data-testid="stInfo"] {
         background: rgba(13, 17, 23, 0.9) !important;
         border-radius: 15px !important; color: #ccd6f6 !important;
     }
-    .clear-btn button {
-        background: #212529 !important; height: 35px !important; margin-top: 10px !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HỆ THỐNG AI ---
+# --- 2. HỆ THỐNG AI (CHỈ CHẠY KHI GỌI) ---
 raw_keys = st.secrets.get("gemini_keys", [])
 LIST_KEYS = [k.strip().replace('"', '').replace("'", "") for k in raw_keys if k.strip()]
 
@@ -42,23 +39,21 @@ def safe_ai(prompt):
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
         except: continue
-    return "🚨 Vệ tinh bận, nhấn Quét lại nhé Kevin!"
+    return "🚨 Vệ tinh bận, thử lại nhé Kevin!"
 
 # --- 3. APP CHÍNH ---
 st.sidebar.title("🛡️ KEVIN TV ELITE")
 ticker = st.sidebar.text_input("Nhập mã (VD: FPT, HPG):", "").upper()
 
+# KHÔNG LOAD GÌ CẢ NẾU CHƯA NHẬP MÃ
 if not ticker:
     st.markdown('<div style="text-align:center; padding-top:150px; color:#888;"><h1>🔭 KEVIN ELITE STOCK</h1><p>Nhập mã tại Sidebar để soi lệnh.</p></div>', unsafe_allow_html=True)
 else:
-    # Biểu đồ TradingView
+    # Biểu đồ TradingView (Cái này nhẹ, cho hiện luôn)
     tv_html = f"""
-    <div style="height:500px;">
-      <div id="tv_chart" style="height:500px;"></div>
-      <script src="https://s3.tradingview.com/tv.js"></script>
-      <script>
-      new TradingView.widget({{"autosize": true, "symbol": "HOSE:{ticker}", "interval": "D", "theme": "dark", "container_id": "tv_chart"}});
-      </script>
+    <div style="height:500px;"><div id="tv_chart" style="height:500px;"></div>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <script>new TradingView.widget({{"autosize": true, "symbol": "HOSE:{ticker}", "interval": "D", "theme": "dark", "container_id": "tv_chart"}});</script>
     </div>
     """
     components.html(tv_html, height=500)
@@ -68,11 +63,12 @@ else:
     
     with col_l:
         st.subheader("🚀 Phân Tích AI")
+        # NÚT BẤM KÍCH HOẠT HÀM 1 (Lấy dữ liệu + AI Phân tích)
         if st.button(f"QUÉT MÃ {ticker}"):
             with st.spinner('Đang lách rào lấy dữ liệu...'):
                 df = pd.DataFrame()
-                # CƠ CHẾ VƯỢT 403/404: Tự động đổi nguồn nếu lỗi
-                for src in ['SSI', 'VCI', 'DNSE', 'TCBS']:
+                # BỎ QUA TCBS (Vì log báo lỗi 404 liên tục), THỬ NGUỒN KHÁC
+                for src in ['SSI', 'VCI', 'DNSE']:
                     try:
                         stock = Vnstock().stock(symbol=ticker, source=src)
                         df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
@@ -81,23 +77,23 @@ else:
                 
                 if not df.empty:
                     lp = df['close'].iloc[-1]
+                    # Chỉ khi lấy được dữ liệu mới gọi hàm AI
                     st.session_state.anal = safe_ai(f"Mã {ticker}, giá {lp:,.0f}đ. Phân tích kỹ thuật ngắn hạn.")
                 else:
-                    st.session_state.anal = "❌ Tất cả nguồn đều chặn (403/404). Thử lại sau ít phút!"
-        st.info(st.session_state.get('anal', "Nhấn nút để bắt đầu..."))
+                    st.session_state.anal = "❌ Các nguồn SSI/VCI đang chặn IP. Thử lại sau ít phút!"
+        
+        st.info(st.session_state.get('anal', "Nhấn nút để bắt đầu quét..."))
 
     with col_r:
         st.subheader("💬 Trợ Lý Trading")
         q = st.chat_input(f"Hỏi về {ticker}...")
+        # NÚT BẤM KÍCH HOẠT HÀM 2 (Chat AI)
         if q: 
             st.session_state.chat = safe_ai(f"Mã {ticker}: {q}")
         
         st.info(st.session_state.get('chat', "Sẵn sàng trả lời..."))
         
-        # --- NÚT XOÁ CHAT ---
-        st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
         if st.button("🗑️ XOÁ LỊCH SỬ"):
-            if 'chat' in st.session_state: del st.session_state.chat
-            if 'anal' in st.session_state: del st.session_state.anal
+            for key in ['chat', 'anal']:
+                if key in st.session_state: del st.session_state[key]
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
