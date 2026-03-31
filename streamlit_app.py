@@ -7,7 +7,7 @@ import google.generativeai as genai
 st.set_page_config(page_title='Kevin Elite AI', layout="wide")
 
 # DÁN CÁI LINK CSV BẠN VỪA COPY Ở BƯỚC 1 VÀO ĐÂY
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBTFokhjgHYmkNhyltxBG6YcULD0vEKbJ9-yiOYKVqXFGJQjlOZMmWZxnoKke6BiS1s3xYAZl959-c/pubhtml"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBTFokhjgHYmkNhyltxBG6YcULD0vEKbJ9-yiOYKVqXFGJQjlOZMmWZxnoKke6BiS1s3xYAZl959-c/pub?output=csv"
 
 # 2. THIẾT LẬP GEMINI CHUYÊN GIA TÀI CHÍNH
 def get_gemini_response(user_input, stock_data):
